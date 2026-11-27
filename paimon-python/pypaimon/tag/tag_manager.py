@@ -265,6 +265,7 @@ class TagManager:
         Raises:
             ValueError: If old_name or new_name is blank, old_name doesn't exist,
                        or new_name already exists
+            RuntimeError: If the rename operation fails
         """
         if not old_name or old_name.isspace():
             raise ValueError("Old tag name shouldn't be blank.")
@@ -283,6 +284,7 @@ class TagManager:
         # Rename the tag file from old name to new name
         old_path = self.tag_path(old_name)
         new_path = self.tag_path(new_name)
-        self.file_io.rename(old_path, new_path)
+        if not self.file_io.rename(old_path, new_path):
+            raise RuntimeError(f"Failed to rename tag from '{old_name}' to '{new_name}'")
 
         logger.info(f"Tag renamed from '{old_name}' to '{new_name}'.")

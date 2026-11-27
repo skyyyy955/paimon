@@ -249,8 +249,7 @@ class FileSystemBranchManager(BranchManager):
             # Rename the branch directory
             from_path = self.branch_path(from_branch)
             to_path = self.branch_path(to_branch)
-            self.file_io.rename(from_path, to_path)
-            logger.info(f"Successfully renamed branch from '{from_branch}' to '{to_branch}'")
+            renamed = self.file_io.rename(from_path, to_path)
         except Exception as e:
             logger.warning(
                 f"Renaming branch from '{from_branch}' to '{to_branch}' failed due to an exception. "
@@ -259,6 +258,9 @@ class FileSystemBranchManager(BranchManager):
             raise RuntimeError(
                 f"Failed to rename branch from '{from_branch}' to '{to_branch}'"
             ) from e
+        if not renamed:
+            raise RuntimeError(f"Failed to rename branch from '{from_branch}' to '{to_branch}'")
+        logger.info(f"Successfully renamed branch from '{from_branch}' to '{to_branch}'")
 
     def fast_forward(self, branch_name: str) -> None:
         """

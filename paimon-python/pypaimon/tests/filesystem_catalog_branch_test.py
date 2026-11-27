@@ -243,6 +243,26 @@ class FileSystemCatalogBranchCRUDTest(unittest.TestCase):
         self.assertNotIn("b1", listed)
         self.assertIn("b2", listed)
 
+    def test_rename_branch_reports_file_io_failure_and_allows_retry(self):
+        source, target = "release_old", "release_new"
+        self.catalog.create_tag(self.identifier, "base", snapshot_id=1)
+        self.catalog.create_branch(self.identifier, source, tag_name="base")
+        expected = self.catalog.get_tag(self.identifier, "base").snapshot
+
+        with patch.object(self.catalog.file_io, "rename", return_value=False) as rename:
+            with self.assertRaises(RuntimeError) as raised:
+                self.catalog.rename_branch(self.identifier, source, target)
+        rename.assert_called_once()
+        self.assertIn(source, str(raised.exception))
+        self.assertIn(target, str(raised.exception))
+        self.assertEqual(self.catalog.list_branches(self.identifier), [source])
+
+        self.catalog.rename_branch(self.identifier, source, target)
+        self.assertEqual(self.catalog.list_branches(self.identifier), [target])
+        renamed = self.catalog.get_table(Identifier(
+            self.identifier.get_database_name(), self.identifier.get_table_name(), branch=target))
+        self.assertEqual(renamed.snapshot_manager().get_latest_snapshot(), expected)
+
     def test_rename_branch_to_existing_raises(self):
         self.catalog.create_branch(self.identifier, "b1")
         self.catalog.create_branch(self.identifier, "b2")
