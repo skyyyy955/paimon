@@ -29,6 +29,7 @@ import os
 import shutil
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import pyarrow as pa
 
@@ -204,6 +205,23 @@ class FileSystemCatalogTagCRUDTest(unittest.TestCase):
         with self.assertRaises(TagNotExistException) as cm:
             self.catalog.get_tag(self.identifier, "absent")
         self.assertEqual(cm.exception.tag, "absent")
+
+    def test_rename_tag_reports_file_io_failure_and_allows_retry(self):
+        source, target = "release_old", "release_new"
+        self.catalog.create_tag(self.identifier, source, snapshot_id=1)
+        expected = self.catalog.get_tag(self.identifier, source).snapshot
+
+        with patch.object(self.catalog.file_io, "rename", return_value=False) as rename:
+            with self.assertRaises(RuntimeError) as raised:
+                self.catalog.rename_tag(self.identifier, source, target)
+        rename.assert_called_once()
+        self.assertIn(source, str(raised.exception))
+        self.assertIn(target, str(raised.exception))
+        self.assertEqual(self.catalog.list_tags_paged(self.identifier).elements, [source])
+
+        self.catalog.rename_tag(self.identifier, source, target)
+        self.assertEqual(self.catalog.list_tags_paged(self.identifier).elements, [target])
+        self.assertEqual(self.catalog.get_tag(self.identifier, target).snapshot, expected)
 
     # -- delete --------------------------------------------------------------
 
